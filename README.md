@@ -1,16 +1,59 @@
-# React + Vite
+# TRAVEL AI: 랜드사 비정형 데이터 정형화 및 B2B 상담 지원 솔루션 (POC)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+### 프로젝트 개요 및 분석 목표
 
-Currently, two official plugins are available:
+본 프로젝트는 중소 여행사(랜드사)에서 관리하는 파편화된 비정형 데이터(Excel, PDF, 이미지 등)를 지능적으로 정형화하고, 이를 기반으로 여행사 직원이 고객에게 실시간 상품 추천 및 맞춤 견적을 제공할 수 있도록 돕는 **RAG 기반 B2B 운영 지원 솔루션**입니다.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+주요 목표는 수작업으로 이루어지던 여행 상품 정보 검색 및 견적 산출 과정을 자동화하여 업무 효율을 높이고, 최신 LLM 기술을 통해 데이터 누락 없는 정확한 상담 환경을 구축하는 것이었습니다.
 
-## React Compiler
+---
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### 분석 방법론 및 시스템 아키텍처 상세
 
-## Expanding the ESLint configuration
+#### 1. 비정형 데이터 정형화 (Data Transformation)
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+여행 상품의 특성상 복잡한 표와 이미지가 포함된 문서가 많다는 점에 착안하여, 멀티모달 기술을 적용했습니다.
+
+* **Gemini Multimodal Pipeline:** 다양한 포맷의 문서를 시각적으로 분석하여 여행 일정, 포함 사항, 가격 등 핵심 정보를 추출하고 표준화된 **JSON 데이터**로 변환하는 자동화 파이프라인을 설계했습니다.
+* **데이터 표준화:** 정형화된 데이터를 기반으로 벡터 데이터베이스(Knowledge Base)를 구축하여 검색 효율성을 극대화했습니다.
+
+#### 2. 고성능 RAG 시스템 설계 (RAG Architecture)
+
+장문의 상품 정보를 유실 없이 처리하고 정확하게 인출하기 위해 다음의 기술을 적용했습니다.
+
+* **BGE-M3 모델 활용:** 8,192 토큰의 긴 컨텍스트를 지원하는 BGE-M3를 도입하여, 여행 상품의 세부 일정과 약관을 한 번에 벡터화함으로써 정보 손실을 최소화했습니다.
+* **FAISS 기반 초저지연 검색:** 대규모 벡터 검색에 최적화된 FAISS 라이브러리를 통해 실시간 상담 중에도 지연 시간(Latency)을 최소화했습니다.
+
+#### 3. 검색 품질 제어 및 신뢰성 확보
+
+LLM의 환각(Hallucination) 현상을 방지하기 위해 기술적 안전장치를 마련했습니다.
+
+* **L2 Distance 임계값 모니터링:** 검색 결과와 질문 간의 거리(L2 Distance)를 측정하여, 일정 수준 이상의 유사도가 확보되지 않을 경우 '일반 답변'이 아닌 **'맞춤 견적 모드'**로 자동 전환되는 폴백(Fallback) 로직을 구현했습니다.
+* **하이브리드 재순위화(Re-ranking):** 단순 벡터 검색의 한계를 보완하기 위해 수치 연산과 키워드 매칭을 결합한 로직으로 검색 품질을 엄격히 제어했습니다.
+
+---
+
+### 기술 구현 및 서비스화
+
+#### 1. 웹 및 기술 스택 상세
+
+| 구분 | 기술 | 구현 기능 및 특징 |
+| :--- | :--- | :--- |
+| **Backend** | Python, Flask | 가볍고 빠른 API 서버 구축 및 AI 모델 엔진 연동 |
+| **AI Framework** | LangChain, Gemini 2.5 Flash | LLM 오케스트레이션 및 멀티모달 데이터 정형화 |
+| **Vector DB** | FAISS, BGE-M3 | 초저지연 벡터 검색 및 대용량 텍스트 임베딩 처리 |
+| **Messaging** | Kafka | 실시간 데이터 스트리밍 및 비동기 작업 큐 관리 |
+| **Frontend** | HTML5, CSS3, Tailwind CSS | B2B 상담용 인터페이스 및 실시간 채팅 UI 구현 |
+
+#### 2. 주요 기능 및 도전 과제 해결
+
+* **모델 통합을 통한 기술 부채 해결:** 초기 의도분류(KoELECTRA)와 요약(KoBART) 모델 연동 시 발생했던 도메인 편향 및 운영 복잡성 문제를 해결하기 위해, 기존 **3-Model 시스템을 폐기**하고 LLM 프롬프트 엔지니어링 기반의 통합 시스템으로 선회하여 운영 유연성을 획기적으로 확보했습니다.
+* **실시간 상품 추천:** 고객의 요구사항(목적지, 예산, 취향 등)을 분석하여 내부 지식 베이스 내 가장 적합한 여행 상품을 1:1로 매칭합니다.
+
+---
+
+### 향후 도전 과제
+
+* **멀티 에이전트 협업 시스템 도입:** 단순 상담을 넘어, 항공권 예약 엔진이나 숙박 엔진과 협업하는 멀티 에이전트(LangGraph) 구조로의 고도화를 검토 중입니다.
+* **MLOps 파이프라인 구축:** 랜드사의 신규 상품이 등록될 때마다 자동으로 임베딩되고 성능을 테스트하는 지속적 배포/모니터링 체계를 구축하고자 합니다.
+* **다국어 상담 지원:** 글로벌 고객을 대상으로 한 상담이 가능하도록 임베딩 모델의 다국어 지원 범위를 확장할 계획입니다.
